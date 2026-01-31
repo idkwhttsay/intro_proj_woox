@@ -1,0 +1,6 @@
+[package]
+name = "intro_prog_woox"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
