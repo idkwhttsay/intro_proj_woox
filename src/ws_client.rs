@@ -30,7 +30,7 @@ async fn fetch_orderbook_snapshot() -> Result<OrderbookSnapshot, reqwest::Error>
 /// Connects to the exchange WebSocket, synchronizes an initial snapshot and
 /// processes incremental orderbook updates.
 pub async fn connect_ws() -> Result<(), Box<dyn std::error::Error>> {
-    let (tx, mut rx) = mpsc::channel::<WsOrderbookUpdateData>(100);
+    let (tx, mut rx) = mpsc::channel::<WsOrderbookUpdateData>(10000);
 
     let (ws_stream, _) = connect_async(WEBSOCKET_URL).await?;
     println!("WebSocket connected to {}", WEBSOCKET_URL);
