@@ -12,7 +12,10 @@ const DEPTH: usize = 50;
 const TICKER: &str = "PERP_ETH_USDT";
 const SNAPSHOT_MAX_LEVEL: usize = 5;
 
-/// Fetches the orderbook snapshot from the REST API.
+
+/// Fetches the orderbook snapshot from the exchange REST endpoint and deserializes
+/// the response into `OrderbookSnapshot`. Returns a `reqwest::Error` on
+/// failure.
 async fn fetch_orderbook_snapshot() -> Result<OrderbookSnapshot, reqwest::Error> {
     let url = format!(
         "https://api.woox.io/v3/public/orderbook?maxLevel={}&symbol={}",
@@ -24,7 +27,8 @@ async fn fetch_orderbook_snapshot() -> Result<OrderbookSnapshot, reqwest::Error>
     Ok(snapshot)
 }
 
-/// Connects to the WebSocket and processes orderbook updates.
+/// Connects to the exchange WebSocket, synchronizes an initial snapshot and
+/// processes incremental orderbook updates.
 pub async fn connect_ws() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, mut rx) = mpsc::channel::<WsOrderbookUpdateData>(100);
 
@@ -32,8 +36,6 @@ pub async fn connect_ws() -> Result<(), Box<dyn std::error::Error>> {
     println!("WebSocket connected to {}", WEBSOCKET_URL);
 
     let (mut write, mut read) = ws_stream.split();
-
-    let tx_ws_read = tx.clone();
 
     // spawn a task to handle incoming WebSocket messages
     tokio::spawn(async move {
@@ -55,7 +57,7 @@ pub async fn connect_ws() -> Result<(), Box<dyn std::error::Error>> {
             if let Ok(Message::Text(text)) = message {
                 match serde_json::from_str::<WsOrderbookUpdate>(&text) {
                     Ok(update) => {
-                        if update.topic.starts_with("orderbookupdate") && let Err(e) = tx_ws_read.send(update.data).await {
+                        if update.topic.starts_with("orderbookupdate") && let Err(e) = tx.send(update.data).await {
                             eprintln!("Failed to send update via channel: {}", e);
                             break;
                         }

@@ -50,12 +50,15 @@ impl Orderbook {
         self.asks.truncate(5);
     }
 
-    /// Returns the last update timestamp.
+    /// Returns the timestamp of the most recently applied snapshot or
+    /// incremental update. Useful to detect missed updates.
     pub fn last_ts(&self) -> u64 {
         self.last_ts
     }
 
-    /// Updates the orderbook with a new WsOrderbookUpdateData.
+    /// Applies an incremental update. For each bid/ask in `update`, the
+    /// corresponding level will be inserted, updated or removed (if
+    /// quantity is zero). The `last_ts` is updated to `update.ts`.
     pub fn update(&mut self, update: &WsOrderbookUpdateData) {
         self.last_ts = update.ts;
 
