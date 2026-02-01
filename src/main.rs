@@ -1,16 +1,31 @@
-mod ws_types;
+mod dto;
+mod orderbook;
 
 use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::{Message, Result};
 use tokio::sync::mpsc;
 use serde_json::json;
-use crate::ws_types::{WsOrderbookUpdate, WsOrderbookUpdateData};
+use reqwest::{Response, get};
+use crate::dto::{OrderbookSnapshot, WsOrderbookUpdate, WsOrderbookUpdateData};
+use crate::orderbook::Orderbook;
+
 
 const WEBSOCKET_URL: &str = "wss://wss.woox.io/v3/public";
 const DEPTH: usize = 50;
 const TICKER: &str = "PERP_ETH_USDT";
+const SNAPSHOT_MAX_LEVEL: usize = 5;
 
+async fn fetch_orderbook_snapshot() -> Result<OrderbookSnapshot, reqwest::Error> {
+    let url = format!(
+        "https://api.woox.io/v3/public/orderbook?maxLevel={}&symbol={}",
+        SNAPSHOT_MAX_LEVEL, TICKER
+    );
+
+    let resp: Response = get(&url).await?;
+    let snapshot: OrderbookSnapshot = resp.json().await?;
+    Ok(snapshot)
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -46,6 +61,7 @@ async fn main() -> Result<()> {
                         if update.topic.starts_with("orderbookupdate") {
                             if let Err(e) = tx_ws_read.send(update.data).await {
                                 eprintln!("Failed to send update via channel: {}", e);
+                                break;
                             }
                         }
                     }
@@ -59,8 +75,25 @@ async fn main() -> Result<()> {
         }
     });
 
+    let mut orderbook = Orderbook::new();
+    let snapshot: OrderbookSnapshot = fetch_orderbook_snapshot().await.unwrap();
+    orderbook.apply_snapshot(&snapshot);
+    println!("Applied initial snapshot. Snapshot ts: {}", snapshot.timestamp);
+    orderbook.print_columnar();
+
     while let Some(update) = rx.recv().await {
-        println!("{:#?}", update);
+        println!("Received update with ts: {}, prevTs: {}", update.ts, update.prevTs);
+        if orderbook.last_ts() == update.prevTs {
+            orderbook.update(&update);
+            orderbook.print_columnar();
+        } else if orderbook.last_ts() < update.prevTs {
+            let snapshot: OrderbookSnapshot = fetch_orderbook_snapshot().await.unwrap();
+            orderbook.apply_snapshot(&snapshot);
+            orderbook.print_columnar();
+            println!("Applied snapshot due to missing updates. Snapshot ts: {}", snapshot.timestamp);
+        } else {
+            println!("Received old update. Current last_ts: {}, update prevTs: {}", orderbook.last_ts(), update.prevTs);
+        }
     }
 
     Ok(())

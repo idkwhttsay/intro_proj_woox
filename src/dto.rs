@@ -22,3 +22,16 @@ pub struct BidAsk {
     pub price: String,
     pub quantity: String,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct OrderbookSnapshot {
+    pub success: bool,
+    pub timestamp: u64,
+    pub data: OrderbookSnapshotData,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct OrderbookSnapshotData {
+    pub asks: Vec<BidAsk>,
+    pub bids: Vec<BidAsk>,
+}
