@@ -9,6 +9,7 @@ struct Level {
 
 /// Represents an orderbook with bids and asks.
 pub struct Orderbook {
+    // since we only keep the top 5 levels, just using vector of levels is sufficient here
     bids: Vec<Level>, // sorted descending by price
     asks: Vec<Level>, // sorted ascending by price
     last_ts: u64, // last update timestamp

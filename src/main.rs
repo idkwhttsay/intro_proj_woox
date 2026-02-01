@@ -16,6 +16,7 @@ const DEPTH: usize = 50;
 const TICKER: &str = "PERP_ETH_USDT";
 const SNAPSHOT_MAX_LEVEL: usize = 5;
 
+/// Fetches the orderbook snapshot from the REST API.
 async fn fetch_orderbook_snapshot() -> Result<OrderbookSnapshot, reqwest::Error> {
     let url = format!(
         "https://api.woox.io/v3/public/orderbook?maxLevel={}&symbol={}",
@@ -28,7 +29,7 @@ async fn fetch_orderbook_snapshot() -> Result<OrderbookSnapshot, reqwest::Error>
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, mut rx) = mpsc::channel::<WsOrderbookUpdateData>(100);
 
     let (ws_stream, _) = connect_async(WEBSOCKET_URL).await?;
@@ -58,17 +59,14 @@ async fn main() -> Result<()> {
             if let Ok(Message::Text(text)) = message {
                 match serde_json::from_str::<WsOrderbookUpdate>(&text) {
                     Ok(update) => {
-                        if update.topic.starts_with("orderbookupdate") {
-                            if let Err(e) = tx_ws_read.send(update.data).await {
-                                eprintln!("Failed to send update via channel: {}", e);
-                                break;
-                            }
+                        if update.topic.starts_with("orderbookupdate") && let Err(e) = tx_ws_read.send(update.data).await {
+                            eprintln!("Failed to send update via channel: {}", e);
+                            break;
                         }
                     }
 
                     Err(e) => {
                         eprintln!("Failed to deserialize message: {}, error: {}", text, e);
-                        break;
                     }
                 }
             }
