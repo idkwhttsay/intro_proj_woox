@@ -1,3 +1,4 @@
+use std::fmt;
 use crate::dto::{BidAsk, WsOrderbookUpdateData, OrderbookSnapshot};
 
 /// Represents a single level in the orderbook.
@@ -15,6 +16,34 @@ pub struct Orderbook {
     last_ts: u64, // last update timestamp
 }
 
+/// Pretty-prints the orderbook in a columnar format.
+impl fmt::Display for Orderbook {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "{:<20} | {:<20}", "Bids", "Asks")?;
+        writeln!(f, "{:-<20}-+-{:-<20}", "", "")?;
+
+        let max_levels = self.bids.len().max(self.asks.len());
+
+        for i in 0..max_levels {
+            let bid_str = if i < self.bids.len() {
+                format!("{:.2} ({:.4})", self.bids[i].price, self.bids[i].quantity)
+            } else {
+                String::new()
+            };
+
+            let ask_str = if i < self.asks.len() {
+                format!("{:.2} ({:.4})", self.asks[i].price, self.asks[i].quantity)
+            } else {
+                String::new()
+            };
+
+            writeln!(f, "{:<20} | {:<20}", bid_str, ask_str)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl Orderbook {
     /// Creates a new, empty Orderbook.
     pub fn new() -> Self {
@@ -22,6 +51,15 @@ impl Orderbook {
             bids: Vec::new(),
             asks: Vec::new(),
             last_ts: 0,
+        }
+    }
+
+    /// Compares two levels based on price for sorting.
+    fn level_compare(a: &Level, b: &Level, is_bid: bool) -> std::cmp::Ordering {
+        if is_bid {
+            b.price.partial_cmp(&a.price).unwrap()
+        } else {
+            a.price.partial_cmp(&b.price).unwrap()
         }
     }
 
@@ -42,8 +80,8 @@ impl Orderbook {
         }
 
         // sort bids descending and asks ascending
-        self.bids.sort_by(|a, b| b.price.partial_cmp(&a.price).unwrap());
-        self.asks.sort_by(|a, b| a.price.partial_cmp(&b.price).unwrap());
+        self.bids.sort_by(|a, b| Self::level_compare(a, b, true));
+        self.asks.sort_by(|a, b| Self::level_compare(a, b, false));
 
         // keep only top 5 levels
         self.bids.truncate(5);
@@ -96,39 +134,15 @@ impl Orderbook {
                     // insert new level
                     levels.push(Level { price, quantity });
                     if is_bid {
-                        levels.sort_by(|a, b| b.price.partial_cmp(&a.price).unwrap());
+                        levels.sort_by(|a, b| Self::level_compare(a, b, true));
                     } else {
-                        levels.sort_by(|a, b| a.price.partial_cmp(&b.price).unwrap());
+                        levels.sort_by(|a, b| Self::level_compare(a, b, false));
                     }
 
                     // keep only 5 best levels for bids and asks
                     levels.truncate(5);
                 }
             }
-        }
-    }
-
-    /// Prints the orderbook in a columnar format.
-    pub fn print_columnar(&self) {
-        println!("{:<20} | {:<20}", "Bids", "Asks");
-        println!("{:-<20}-+-{:-<20}", "", "");
-
-        let max_levels = self.bids.len().max(self.asks.len());
-
-        for i in 0..max_levels {
-            let bid_str = if i < self.bids.len() {
-                format!("{:.2} ({:.4})", self.bids[i].price, self.bids[i].quantity)
-            } else {
-                String::new()
-            };
-
-            let ask_str = if i < self.asks.len() {
-                format!("{:.2} ({:.4})", self.asks[i].price, self.asks[i].quantity)
-            } else {
-                String::new()
-            };
-
-            println!("{:<20} | {:<20}", bid_str, ask_str);
         }
     }
 
