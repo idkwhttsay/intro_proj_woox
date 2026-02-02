@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::{WebSocketStream, connect_async, MaybeTlsStream};
@@ -95,12 +93,12 @@ pub async fn connect_ws() -> Result<(), Box<dyn std::error::Error>> {
 
     // process incoming orderbook updates
     while let Some(update) = rx.recv().await {
-        println!("Received update with ts: {}, prevTs: {}", update.ts, update.prevTs);
-        if orderbook.last_ts() == update.prevTs {
+        println!("Received update with ts: {}, prevTs: {}", update.ts, update.prev_ts);
+        if orderbook.last_ts() == update.prev_ts {
             // apply update
             orderbook.update(&update);
             println!("{}", orderbook);
-        } else if orderbook.last_ts() < update.prevTs {
+        } else if orderbook.last_ts() < update.prev_ts {
             // missed updates, re-fetch snapshot
             let snapshot: OrderbookSnapshot = fetch_orderbook_snapshot().await.unwrap();
             orderbook.apply_snapshot(&snapshot);
@@ -108,7 +106,7 @@ pub async fn connect_ws() -> Result<(), Box<dyn std::error::Error>> {
             println!("Applied snapshot due to missing updates. Snapshot ts: {}", snapshot.timestamp);
         } else {
             // old update, ignore
-            println!("Received old update. Current last_ts: {}, update prevTs: {}", orderbook.last_ts(), update.prevTs);
+            println!("Received old update. Current last_ts: {}, update prevTs: {}", orderbook.last_ts(), update.prev_ts);
         }
     }
 

@@ -4,7 +4,6 @@ use serde::Deserialize;
 #[derive(Deserialize, Debug)]
 pub struct WsOrderbookUpdate {
     pub topic: String,
-    pub ts: u64,
     pub data: WsOrderbookUpdateData,
 }
 
@@ -12,8 +11,8 @@ pub struct WsOrderbookUpdate {
 /// The payload of a websocket orderbook update.
 #[derive(Deserialize, Debug)]
 pub struct WsOrderbookUpdateData {
-    pub s: String,
-    pub prevTs: u64,
+    #[serde(rename = "prevTs")]
+    pub prev_ts: u64,
     pub bids: Vec<BidAsk>,
     pub asks: Vec<BidAsk>,
     pub ts: u64,
@@ -31,7 +30,6 @@ pub struct BidAsk {
 /// REST API snapshot response wrapper.
 #[derive(Deserialize, Debug)]
 pub struct OrderbookSnapshot {
-    pub success: bool,
     pub timestamp: u64,
     pub data: OrderbookSnapshotData,
 }
