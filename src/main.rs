@@ -1,12 +1,12 @@
 mod dto;
 mod orderbook;
 mod ws_client;
-
-use crate::ws_client::connect_ws;
+mod orderbook_service;
+mod consts;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    connect_ws().await?;
+    orderbook_service::run_orderbook_service().await;
     Ok(())
 }
 
